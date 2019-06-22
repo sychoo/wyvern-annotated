@@ -1,3 +1,5 @@
+// VarBindingContext.java
+// stores variable bindings and type context
 package wyvern.target.corewyvernIL.support;
 
 import wyvern.target.corewyvernIL.BindingSite;

@@ -8,11 +8,12 @@ import wyvern.tools.typedAST.core.Sequence;
 import wyvern.tools.typedAST.core.binding.NameBindingImpl;
 import wyvern.tools.typedAST.core.declarations.DeclSequence;
 import wyvern.tools.typedAST.core.declarations.DefDeclaration;
-import wyvern.tools.typedAST.core.declarations.DelegateDeclaration;
+import wyvern.tools.typedAST.core.declarations.ForwardDeclaration;
 import wyvern.tools.typedAST.core.declarations.EffectDeclaration;
 import wyvern.tools.typedAST.core.declarations.ImportDeclaration;
 import wyvern.tools.typedAST.core.declarations.Instantiation;
 import wyvern.tools.typedAST.core.declarations.ModuleDeclaration;
+import wyvern.tools.typedAST.core.declarations.RecConstructDeclaration;
 import wyvern.tools.typedAST.core.declarations.TypeAbbrevDeclaration;
 import wyvern.tools.typedAST.core.declarations.TypeDeclaration;
 import wyvern.tools.typedAST.core.declarations.TypeVarDecl;
@@ -40,7 +41,7 @@ import java.util.Iterator;
 
 public class AnnotatedEffectVisitor extends TypedASTVisitor<GenContext, Void> {
 
-    @Override
+   // @Override
     public Void visit(GenContext state, NameBindingImpl ast) {
         return null;
     }
@@ -65,7 +66,7 @@ public class AnnotatedEffectVisitor extends TypedASTVisitor<GenContext, Void> {
     }
 
     @Override
-    public Void visit(GenContext state, DelegateDeclaration ast) {
+    public Void visit(GenContext state, ForwardDeclaration ast) {
         return null;
     }
 
@@ -240,4 +241,10 @@ public class AnnotatedEffectVisitor extends TypedASTVisitor<GenContext, Void> {
     public Void visit(GenContext state, DSLLit ast) {
         return null;
     }
+
+	@Override
+	public Void visit(GenContext state, RecConstructDeclaration ast) {
+		// TODO Auto-generated method stub
+		return null;
+	}
 }

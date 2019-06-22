@@ -1,3 +1,5 @@
+// FileLocation.java
+// assists with locating file name, line number and column number.
 package wyvern.tools.errors;
 
 import edu.umn.cs.melt.copper.runtime.io.InputPosition;

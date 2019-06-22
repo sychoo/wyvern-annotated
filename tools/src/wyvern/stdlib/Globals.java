@@ -1,3 +1,6 @@
+// Globals.java
+// Reviewed Fri Jun 21 20:27:38 EDT 2019
+
 package wyvern.stdlib;
 
 import java.io.File;

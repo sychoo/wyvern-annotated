@@ -1,5 +1,7 @@
 import metadata wyvern.IfTSL
+import metadata wyvern.whileTSL
 import wyvern.runtime
 
 val ifelseARG = (cond:Boolean, tt:IfTSL.FnExpr, ff:IfTSL.FnExpr) => IfTSL.doif(cond, tt, ff)
 val if = (cond:Boolean, blocks:IfTSL.Blocks) => IfTSL.doifblk(cond, blocks)
+val while = (cond: Boolean, blocks:whileTSL.Blocks) => whileTSL.dowhileblk(cond, blocks)

@@ -24,12 +24,14 @@
         </javac>
     </target>
 
+    <!--output java lexer using copper-->
     <target name="lexer">
         <copper outputfile="src/wyvern/tools/lexing/WyvernLexer.java" packagename="wyvern.tools.lexing">
             <inputs file="src/wyvern/tools/lexing/WyvernLexer.x"/>
         </copper>
     </target>
 
+    <!--output java parser using javacc-->
     <target name="javacc-parser" depends="lexer">
         <javacc
             target="src/wyvern/tools/parsing/coreparser/WyvernParser.jj"
@@ -38,6 +40,7 @@
         />
     </target>
 
+    <!--generate code for copper test-->
     <target name="copper-generate" depends="lexer,javacc-parser">
     </target>
 

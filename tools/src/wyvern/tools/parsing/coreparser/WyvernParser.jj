@@ -103,7 +103,8 @@ TOKEN : /* Keywords */
 | < ASSERT: "assert" >
 | < DATATYPE: "datatype" >
 | < CLASS: "class" >
-| < DELEGATE: "delegate" >
+| < REC: "rec" >
+| < FORWARD: "forward" >
 | < TO: "to" >
 | < REQUIRE: "require" >
 | < METADATA: "metadata" >
@@ -116,6 +117,7 @@ TOKEN : /* Keywords */
 | < IMPORT: "import" >
 | < LIFTED: "lifted" >
 | < DEFLT: "default" >
+//| < WHILE: "while" >
 //| < : "" >
 // more here
 | < RESOURCE : "resource" >
@@ -303,14 +305,6 @@ String Segment() :
 	( <DOT> t1 = <IDENTIFIER> { s = s + '.' + t1.image; } )* { return s; }
 }
 
-AST DeclSequence(boolean inModule) :
-{ AST decl1; AST decl2; }
-{
-  decl1 = Declaration(inModule)
-  ( decl2 = Declaration(inModule) { decl1 = build.sequence(decl1, decl2, inModule); } )*
-    { return decl1; }
-}
-
 AST Declaration(boolean inModule) :
 { AST exp; }
 {
@@ -332,22 +326,15 @@ AST Declaration(boolean inModule) :
 |
    LOOKAHEAD(4) exp = TypeAbbrevDeclaration() { return exp; }
 |
-  exp = DelegateDeclaration()  { return exp; }
+  exp = ForwardDeclaration()  { return exp; }
+|
+  exp = RecDeclaration() { return exp; }
 |
   exp = ExpressionLine(inModule) { return exp; }
 |
-  exp = Instantiation() {return exp; }
-}
-
-AST DefDeclaration() :
-{ Type resultType; Token name; AST body; List args; List<GenericParameter> gentypes = null; Token effects = null; }
-{
-  <DEF> (name=<IDENTIFIER> | name = OverrideOperator()) [gentypes = GenericsDecl()] args = Formals() <COLON> [effects = <DSL_LITERAL>] resultType = Type() body=DefBody() {
-	if (effects==null) {
-    	return build.defDecl(name.image, resultType, gentypes, args, body, false, loc(name), null);
-  	} 
-  	return build.defDecl(name.image, resultType, gentypes, args, body, false, loc(name), effects.image);
-  }
+  exp = Instantiation() { return exp; }
+//|
+//  exp = WhileDeclaration() { return exp; }
 }
 
 AST ValDeclaration() :
@@ -378,14 +365,6 @@ AST TypeAbbrevDeclaration() :
    }
 }
 
-AST VarDeclaration() :
-{ Type type; Token name; AST body; List args; }
-{
-  <VAR> name=<IDENTIFIER> <COLON> type = Type() <EQUALS> body = ExpressionLine(false) {
-	return build.varDecl(name.image, type, body, loc(name));
-  }
-}
-
 AST EffectDeclaration() : // in module def, must be defined
 { Token name; Token effects; }
 {
@@ -394,13 +373,84 @@ AST EffectDeclaration() : // in module def, must be defined
    }
 }
 
-AST DelegateDeclaration() :
+AST ForwardDeclaration() :
 { Type type; Token t; AST exp; }
 {
-  t=<DELEGATE> type=Type() <TO> exp=ExpressionLine(false) {
-	return build.delegateDecl(type, exp, loc(t));
+  t=<FORWARD> type=Type() <TO> exp=ExpressionLine(false) {
+	return build.forwardDecl(type, exp, loc(t));
   }
 }
+
+AST VarDeclType() :
+{ Type type; Token name; List args; }
+{
+  <VAR> name=<IDENTIFIER> <COLON> type = Type() <NEWLINE> {
+  return build.varDeclType(name.image, type, loc(name));
+  }
+}
+
+AST DefDeclaration() :
+{ Type resultType; Token name; AST body; List args; List<GenericParameter> gentypes = null; Token effects = null; }
+{
+  <DEF> (name=<IDENTIFIER> | name = OverrideOperator()) [gentypes = GenericsDecl()] args = Formals() <COLON> [effects = <DSL_LITERAL>] resultType = Type() body=DefBody() {
+	if (effects==null) {
+    	return build.defDecl(name.image, resultType, gentypes, args, body, false, loc(name), null);
+  	} 
+  	return build.defDecl(name.image, resultType, gentypes, args, body, false, loc(name), effects.image);
+  }
+}
+
+AST DefBody() :
+{ AST exp; }
+{
+  <NEWLINE> <INDENT> exp = DeclSequence(false) <DEDENT> { return exp; }
+|
+  <EQUALS> exp = ExpressionLine(false) { return exp; }
+}
+
+AST DeclSequence(boolean inModule) :
+{ AST decl1; AST decl2; }
+{
+  decl1 = Declaration(inModule)
+  ( decl2 = Declaration(inModule) { decl1 = build.sequence(decl1, decl2, inModule); } )*
+    { return decl1; }
+}
+
+AST VarDeclaration() :
+{ Type type; Token name; AST body; List args; }
+{
+  <VAR> name=<IDENTIFIER> <COLON> type = Type() <EQUALS> body = ExpressionLine(false) {
+	return build.varDecl(name.image, type, body, loc(name));
+  }
+}
+
+AST RecDeclaration() :
+{ AST body; }
+{
+  <REC> <NEWLINE> <INDENT> body = RecBody() <DEDENT> {
+	return build.recDecl(body);
+  }
+}
+
+AST RecBody() :
+{ AST exp1; AST exp2; }
+{
+  exp1 = RecConstruct()
+  ( exp2 = RecConstruct() { exp1 = build.sequence(exp1, exp2, false); } )*
+    { return exp1; }
+}
+
+AST RecConstruct() :
+{ Type type; Token name; AST body; }
+{
+  name=<IDENTIFIER> <COLON> type = Type() body = DefBody() {
+  	return build.recConstructDecl(name.image, type, body, loc(name));
+  }
+}
+
+//AST WhileDeclaration() :
+//{}
+//{}
 
 AST TypeDeclaration() :
 { Token name; AST body = null; AST metadata = null; Type extendedType=null; List<Type> comprisesList=null; boolean isTagged = false;
@@ -515,14 +565,6 @@ AST ValDeclType() :
   }
 }
 
-AST VarDeclType() :
-{ Type type; Token name; List args; }
-{
-  <VAR> name=<IDENTIFIER> <COLON> type = Type() <NEWLINE> {
-  return build.varDeclType(name.image, type, loc(name));
-  }
-}
-
 AST EffectDeclType() :
 { Token name; Token effects = null;}
 {
@@ -609,14 +651,6 @@ Object Formal() :
   }
 }
 
-AST DefBody() :
-{ AST exp; }
-{
-  <NEWLINE> <INDENT> exp = DeclSequence(false) <DEDENT> { return exp; }
-|
-  <EQUALS> exp = ExpressionLine(false) { return exp; }
-}
-
 Token DSLLines() :
 { Token t, t2; int beginColumn; String content = ""; }
 {
@@ -689,11 +723,8 @@ Object CaseArm() :
   ((id=<IDENTIFIER> <COLON> type=NonArrowType())
   | id=<DEFLT>) t=<EQARROW>
   ( exp=ExpressionLine(false)
-  | <NEWLINE> dslTok=DSLLines()
+  | <NEWLINE> <INDENT> exp = DeclSequence(false) <DEDENT>
   ) {
-    if (dslTok != null) {
-	    exp = build.parseExpr(dslTok.image, loc(dslTok));
-    }
     return build.caseArm(id.image,type,exp,loc(t));
   }
 }
@@ -721,7 +752,10 @@ AST AssignmentExpression(ExpFlags flags) :
 AST LambdaFn(ExpFlags flags) :
 { List formals; AST body; Token t; }
 {
-    formals = Formals_Lambda() t=<EQARROW> body = Expression(flags) {
+    formals = Formals_Lambda() t=<EQARROW>
+    (body = Expression(flags) 
+    | <INDENT> body = DeclSequence(false) <DEDENT>
+    ) {
         return build.fn(formals, body, loc(t));
     }
 }

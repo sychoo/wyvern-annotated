@@ -1,3 +1,5 @@
+// BindingSite.java
+// assists with variable binding.
 package wyvern.target.corewyvernIL;
 
 public class BindingSite {
@@ -6,8 +8,9 @@ public class BindingSite {
     private int index;
 
     public BindingSite(String name) {
+    	// check name validity
         if (name == null || name.length() == 0) {
-            throw new RuntimeException("bindinb name invariant violated");
+            throw new RuntimeException("binding name invariant violated");
         }
 
         index = globalIndex++;

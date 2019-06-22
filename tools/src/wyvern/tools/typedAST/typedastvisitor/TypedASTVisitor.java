@@ -6,11 +6,12 @@ import wyvern.tools.typedAST.core.Sequence;
 import wyvern.tools.typedAST.core.binding.NameBindingImpl;
 import wyvern.tools.typedAST.core.declarations.DeclSequence;
 import wyvern.tools.typedAST.core.declarations.DefDeclaration;
-import wyvern.tools.typedAST.core.declarations.DelegateDeclaration;
+import wyvern.tools.typedAST.core.declarations.ForwardDeclaration;
 import wyvern.tools.typedAST.core.declarations.EffectDeclaration;
 import wyvern.tools.typedAST.core.declarations.ImportDeclaration;
 import wyvern.tools.typedAST.core.declarations.Instantiation;
 import wyvern.tools.typedAST.core.declarations.ModuleDeclaration;
+import wyvern.tools.typedAST.core.declarations.RecConstructDeclaration;
 import wyvern.tools.typedAST.core.declarations.TypeAbbrevDeclaration;
 import wyvern.tools.typedAST.core.declarations.TypeDeclaration;
 import wyvern.tools.typedAST.core.declarations.TypeVarDecl;
@@ -35,10 +36,10 @@ import wyvern.tools.typedAST.core.values.StringConstant;
 import wyvern.tools.typedAST.core.values.UnitVal;
 
 public abstract class TypedASTVisitor<S, T> {
-    public abstract T visit(S state, NameBindingImpl ast);
+    public abstract T visit(S state, RecConstructDeclaration ast);
     public abstract T visit(S state, DeclSequence ast);
     public abstract T visit(S state, DefDeclaration ast);
-    public abstract T visit(S state, DelegateDeclaration ast);
+    public abstract T visit(S state, ForwardDeclaration ast);
     public abstract T visit(S state, EffectDeclaration ast);
     public abstract T visit(S state, ImportDeclaration ast);
     public abstract T visit(S state, Instantiation ast);

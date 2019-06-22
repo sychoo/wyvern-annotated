@@ -11,6 +11,10 @@ import wyvern.tools.generics.GenericParameter;
 interface ASTBuilder<AST, Type> {
     AST sequence(AST t1, AST t2, boolean inModule);
 
+    // rec declarations
+    AST recDecl(AST body);
+    AST recConstructDecl(String name, Type type, AST body, FileLocation loc);
+    
     AST script(List<AST> requires, List<AST> imports, AST body);
     AST moduleDecl(String name, List<AST> imports, List<GenericParameter> generics,
                    List args, AST ast, Type type, FileLocation loc, boolean isResource, boolean isAnnotated, String effects);
@@ -25,10 +29,9 @@ interface ASTBuilder<AST, Type> {
             String name, List<GenericParameter> generics, AST body, Object tagInfo, AST metadata, FileLocation loc, boolean isResource, String selfName
     );
 
-    AST delegateDecl(Type type, AST exp, FileLocation loc);
+    AST forwardDecl(Type type, AST exp, FileLocation loc);
     AST effectDecl(String name, String effects, FileLocation loc);
     AST assertion(String description, AST exp, FileLocation loc);
-
 
     AST defDeclType(String name, Type type, List<GenericParameter> generics, List args, FileLocation loc, String effects);
     AST valDeclType(String name, Type type, FileLocation loc);

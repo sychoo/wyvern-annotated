@@ -44,13 +44,14 @@ import wyvern.tools.types.Type;
 import wyvern.tools.util.Pair;
 
 public final class TestUtil {
-    public static final String WYVERN_HOME = System.getenv("WYVERN_HOME");
-    public static final String BASE_PATH = WYVERN_HOME == null
-            ? "src/wyvern/tools/tests/" : WYVERN_HOME + "/tools/src/wyvern/tools/tests/";
+    public static final String WYVERN_HOME_FROM_ENV = System.getenv("WYVERN_HOME");
+    public static final String WYVERN_HOME = WYVERN_HOME_FROM_ENV == null ? "../" : WYVERN_HOME_FROM_ENV;
+    public static final String BASE_PATH = WYVERN_HOME_FROM_ENV == null
+            ? "src/wyvern/tools/tests/" : WYVERN_HOME_FROM_ENV + "/tools/src/wyvern/tools/tests/";
     public static final String STDLIB_PATH = BASE_PATH + "stdlib/";
-    public static final String LIB_PATH = WYVERN_HOME == null ? "../stdlib/" : WYVERN_HOME + "/stdlib/";
-    public static final String EXAMPLES_PATH = WYVERN_HOME == null ? "../examples/" : WYVERN_HOME + "/examples/";
-    public static final String BACKEND_PATH = WYVERN_HOME == null ? "../backend/src/" : WYVERN_HOME + "/backend/src/";
+    public static final String LIB_PATH = WYVERN_HOME + "/stdlib/";
+    public static final String EXAMPLES_PATH = WYVERN_HOME + "/examples/";
+    public static final String BACKEND_PATH = WYVERN_HOME + "/backend/src/";
     private static final String PLATFORM_PATH = BASE_PATH + "platform/java/stdlib/";
 
     private TestUtil() { }
@@ -266,6 +267,10 @@ public final class TestUtil {
     }
 
     public static void doTestScriptModularly(String searchPath, String qualifiedName, ValueType expectedType, Value expectedValue) throws ParseException {
+        doTestScriptModularly(searchPath, qualifiedName, expectedType, expectedValue, true);
+    }
+    public static void doTestScriptModularly(String searchPath, String qualifiedName, ValueType expectedType, Value expectedValue, boolean doRun)
+            throws ParseException {
         InterpreterState state = new InterpreterState(InterpreterState.PLATFORM_JAVA, new File(searchPath), new File(LIB_PATH));
         final Module module = state.getResolver().resolveModule(qualifiedName, true, false);
         IExpr program = state.getResolver().wrap(module.getExpression(), module.getDependencies());
@@ -274,6 +279,9 @@ public final class TestUtil {
     }
 
     public static void doChecks(IExpr program, ValueType expectedType, Value expectedValue) {
+        doChecks(program, expectedType, expectedValue, true);
+    }
+    public static void doChecks(IExpr program, ValueType expectedType, Value expectedValue, boolean doRun) {
         // resolveModule already typechecked, but we'll do it again to verify the type
         TypeContext ctx = Globals.getStandardTypeContext();
         ValueType t = null;
@@ -291,9 +299,11 @@ public final class TestUtil {
         }
 
         // check the result
-        Value v = program.interpret(Globals.getStandardEvalContext());
-        if (expectedValue != null) {
-            Assert.assertEquals(expectedValue, v);
+        if (doRun) {
+            Value v = program.interpret(Globals.getStandardEvalContext());
+            if (expectedValue != null) {
+                Assert.assertEquals(expectedValue, v);
+            }
         }
     }
 

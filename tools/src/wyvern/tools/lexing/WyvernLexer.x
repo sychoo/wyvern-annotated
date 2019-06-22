@@ -24,9 +24,25 @@ import static wyvern.tools.parsing.coreparser.WyvernParserConstants.*;
 	Token flagTok = null;							// a token that signals whether an indent is for a DSL
 	Token lastIndent = null;
     public FileLocation startLocation = null;
+    boolean ilineNext = false;                      // is the first iline in a sequence next?
+    boolean isEQARROWlast = false;
+    Stack<String> lambdas = new Stack<String>();	// the stack of indents for lambdas
+    Stack<Stack<String>> metaStack = new Stack<Stack<String>>(); // the stack of indentation stacks, for handling multi-line lambdas correctly
 	
 	/********************** HELPER FUNCTIONS ************************/
 
+    void adjustEQARROW(List list) {
+        if (list.size() > 0) {
+            Token t = (Token) list.get(list.size()-1);
+            if (t.kind == EQARROW) {
+                isEQARROWlast = true;
+            } else if (t.kind != WHITESPACE && t.kind != SINGLE_LINE_COMMENT
+                        && t.kind != MULTI_LINE_COMMENT) {
+                isEQARROWlast = false;
+            }
+        }
+    }
+    
 	/** equivalent (except for "if") to DSLNext */
 	boolean isDSLNext() {
 	    if (flagTok == null)
@@ -39,6 +55,8 @@ import static wyvern.tools.parsing.coreparser.WyvernParserConstants.*;
 		  case DEF:
 		  case NEW:
 		  case MATCH:
+		  case REC:
+		  case EQARROW:
 		  		return false;
 		  default:
 		  		throw new RuntimeException("broke invariant!");
@@ -140,8 +158,27 @@ import static wyvern.tools.parsing.coreparser.WyvernParserConstants.*;
     terminal Token whitespace_t ::= /[ \t]+/ {: RESULT = token(WHITESPACE,lexeme); :};
     terminal Token dsl_indent_t ::= /[ \t]+/ {: RESULT = token(WHITESPACE,lexeme); :};
     terminal Token indent_t ::= /[ \t]+/ {: RESULT = token(WHITESPACE,lexeme); :};
+    terminal Token iindent_t ::= /[ \t]+/ {:
+        RESULT = token(WHITESPACE,lexeme);
+        if (ilineNext) {
+            lambdas.push(lexeme);
+            ilineNext = false;
+        }
+    :};
 
     terminal Token newline_t ::= /(\n|(\r\n))/ {: RESULT = token(WHITESPACE,lexeme); :};
+    terminal Token inewline_t ::= /(\n|(\r\n))/ {: RESULT = token(WHITESPACE,lexeme); :};
+    terminal Token fn_newline_t ::= /(\n|(\r\n))/ {:
+        ilineNext = true;
+        RESULT = token(WHITESPACE,lexeme);
+        // save a copy of the indent Stack, adjust the stack to the current indent level
+        metaStack.push((Stack<String>) indents.clone());
+        String thisIndent = "";
+        if (lastIndent != null) {
+            thisIndent = lastIndent.image;
+        }
+        LexerUtils.adjustIndent(thisIndent, RESULT, virtualLocation.getFileName(), indents);
+    :};
     
     terminal Token continue_line_t ::= /\\(\n|(\r\n))/ {: RESULT = token(WHITESPACE,lexeme); :};
 
@@ -161,7 +198,16 @@ import static wyvern.tools.parsing.coreparser.WyvernParserConstants.*;
 	terminal Token defKwd_t 	::= /def/ in (keywds) {: RESULT = token(DEF,lexeme); flagTok = RESULT; :};
 	terminal Token varKwd_t 	::= /var/ in (keywds) {: RESULT = token(VAR,lexeme); :};
 	terminal Token assertKwd_t 	::= /assert/ in (keywds) {: RESULT = token(ASSERT,lexeme); :};
-	terminal Token delegateKwd_t::= /delegate/ in (keywds) {: RESULT = token(DELEGATE,lexeme); :};
+	
+	// inserted while keyword
+	// terminal Token whileKwd_t 	::= /while/ in (keywds) {: RESULT = token(WHILE,lexeme); :};
+	
+	// inserted rec keyword
+	terminal Token recKwd_t::= /rec/ in (keywds) {: RESULT = token(REC,lexeme); flagTok = RESULT; :};
+	
+	// inserted forward keyword
+	terminal Token forwardKwd_t::= /forward/ in (keywds) {: RESULT = token(FORWARD,lexeme); :};
+	
 	terminal Token toKwd_t		::= /to/ in (keywds) {: RESULT = token(TO,lexeme); :};
 	//terminal Token Kwd_t 	::= /fn/ in (keywds) {: RESULT = token(FN,lexeme); :};
 	terminal Token requireKwd_t 	::= /require/ in (keywds) {: RESULT = token(REQUIRE,lexeme); :};
@@ -208,7 +254,12 @@ import static wyvern.tools.parsing.coreparser.WyvernParserConstants.*;
 	terminal Token openParen_t ::= /\(/ {: RESULT = token(LPAREN,lexeme); :};
  	terminal Token closeParen_t ::= /\)/ {: RESULT = token(RPAREN,lexeme); :};
  	terminal Token comma_t ::= /,/  {: RESULT = token(COMMA,lexeme); :};
- 	terminal Token arrow_t ::= /=\>/  {: RESULT = token(EQARROW,lexeme); :};
+ 	terminal Token arrow_t ::= /=\>/  {:
+        RESULT = token(EQARROW,lexeme);
+        if (flagTok == null) {
+            flagTok = RESULT;
+        }
+    :};
  	terminal Token tarrow_t ::= /-\>/  {: RESULT = token(TARROW,lexeme); :};
  	terminal Token dot_t ::= /\./ {: RESULT = token(DOT,lexeme); :};
  	terminal Token colon_t ::= /:/ {: RESULT = token(COLON,lexeme); :};
@@ -277,6 +328,40 @@ import static wyvern.tools.parsing.coreparser.WyvernParserConstants.*;
 		inDSL = false;
 		return indent_t;
 	:};
+	disambiguate d2:(newline_t,fn_newline_t)
+	{:
+        if (isEQARROWlast) {
+            return fn_newline_t;
+        } else {
+            return newline_t;
+        }
+	:};
+	disambiguate d3:(newline_t,fn_newline_t,inewline_t)
+	{:
+        if (isEQARROWlast) {
+            return fn_newline_t;
+        } else if (lambdas.size()>0) {
+            return inewline_t;
+        } else {
+            return newline_t;
+        }
+	:};
+	disambiguate d4:(iindent_t,whitespace_t)
+	{:
+        if (ilineNext) {
+            return iindent_t;
+        } else {
+            if (lambdas.size() == 0) {
+                return whitespace_t;
+            }
+            String lambdaIndent = lambdas.get(lambdas.size()-1);
+            if (lexeme.length() >= lambdaIndent.length() && lexeme.startsWith(lambdaIndent)) {
+                return iindent_t;
+            } else {
+                return whitespace_t;
+            }
+        }
+    :};
 %lex}
 
 %cf{
@@ -284,11 +369,14 @@ import static wyvern.tools.parsing.coreparser.WyvernParserConstants.*;
     non terminal inlinelit;
 	non terminal List<Token> program;
 	non terminal List<Token> lines;
+	non terminal List<Token> ilines;
 	non terminal List<Token> logicalLine;
+	non terminal List<Token> ilogicalLine;
 	non terminal List<Token> dslLine;
 	non terminal List<Token> anyLineElement;
 	non terminal List<Token> nonWSLineElement;
 	non terminal List lineElementSequence;
+	non terminal List ilineElementSequence;
 	non terminal List<Token> parens;
 	non terminal List<Token> parenContent;
 	non terminal List<Token> parenContents;
@@ -300,8 +388,19 @@ import static wyvern.tools.parsing.coreparser.WyvernParserConstants.*;
 
 	start with program;
 	
-	parenContent ::= anyLineElement:e {: RESULT = e; :}
-	               | newline_t:t {: RESULT = LexerUtils.makeList(t); :};
+	parenContent ::= anyLineElement:e {:
+                        adjustEQARROW(e);
+                        RESULT = e;
+                    :}
+	               | newline_t:t {: RESULT = LexerUtils.makeList(t); :}
+	               | fn_newline_t:t ilines:l {:
+                        RESULT = LexerUtils.makeList(t);
+                        RESULT.addAll(l);
+                        lambdas.pop();
+                        // pop the old stack back on
+                        indents = metaStack.pop();
+                        RESULT.add(LexerUtils.makeToken(WyvernParserConstants.DEDENT, "DEDENT_end_of_lambda", t));
+                    :};
 	
 	parenContents ::= parenContent:p {: RESULT = p; :}
 	                | parenContents:ps parenContent:p {: RESULT = ps; ps.addAll(p); :};
@@ -327,7 +426,9 @@ import static wyvern.tools.parsing.coreparser.WyvernParserConstants.*;
 	       | defKwd_t:t {: RESULT = t; :}
 	       | varKwd_t:t {: RESULT = t; :}
 	       | assertKwd_t:t {: RESULT = t; :}
-	       | delegateKwd_t:t {: RESULT = t; :}
+//	       | whileKwd_t:t {: RESULT = t; :}
+	       | recKwd_t:t {: RESULT = t; :}
+	       | forwardKwd_t:t {: RESULT = t; :}
 	       | toKwd_t:t {: RESULT = t; :}
 //	       | fnKwd_t:t {: RESULT = t; :}
 	       | requireKwd_t:t {: RESULT = t; :}
@@ -411,7 +512,12 @@ import static wyvern.tools.parsing.coreparser.WyvernParserConstants.*;
 									throw new CopperParserException("Indicated DSL with ~ but then did not indent");
 	                      		RESULT = n;
 	                        :}
-	                      | lineElementSequence:list anyLineElement:n {: list.addAll(n); RESULT = list; :};
+	                      | lineElementSequence:list anyLineElement:n {:
+                                if (flagTok != null && flagTok.kind == EQARROW && list.size() > 0 && ((Token) list.get(list.size()-1)).kind != EQARROW && ((Token) list.get(list.size()-1)).kind != WHITESPACE) {
+                                    flagTok = null;
+                                }
+                                list.addAll(n); RESULT = list;
+                            :};
 	
 	logicalLine ::= lineElementSequence:list newline_t:n {:
 						list.add(n);
@@ -430,6 +536,28 @@ import static wyvern.tools.parsing.coreparser.WyvernParserConstants.*;
 	lines ::= logicalLine:line {: RESULT = line; :}
 	        | lines:p aLine:line {: p.addAll(line); RESULT = p; :};
 
+	ilineElementSequence ::= iindent_t:n {: RESULT = LexerUtils.makeList(n); flagTok = null; lastIndent = n; :}
+	                      | ilineElementSequence:list anyLineElement:n {:
+                                if (flagTok != null && flagTok.kind == EQARROW && list.size() > 0 && ((Token) list.get(list.size()-1)).kind != EQARROW && ((Token) list.get(list.size()-1)).kind != WHITESPACE) {
+                                    flagTok = null;
+                                }
+                                list.addAll(n); RESULT = list;
+                            :};
+	ilogicalLine ::= ilineElementSequence:list inewline_t:n {:
+						list.add(n);
+						RESULT = LexerUtils.<WyvernParserConstants>adjustLogicalLine((LinkedList<Token>)list,
+						                    virtualLocation.getFileName(), indents, WyvernParserConstants.class);
+					    if (foundTilde) {
+						    DSLNext = true;
+						    foundTilde = false;
+						}
+					:}
+				  | inewline_t:n {: RESULT = LexerUtils.makeList(n); :}; // an empty line
+                  
+    // not copying aLine or dslLine; update to support DSLs within indented lambdas
+    ilines ::= ilogicalLine:line {: RESULT = line; :}
+	        | ilines:p ilogicalLine:line {: p.addAll(line); RESULT = p; :};
+            
 	program ::= lines:p {:
 	             	RESULT = p;
 	             	Token t = ((LinkedList<Token>)p).getLast();
